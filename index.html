@@ -49,6 +49,26 @@
             background-clip: text;
             margin-bottom: 40px;
             text-align: center;
+            opacity: 0;
+            animation: fadeInDown 0.8s ease forwards;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 视频框从中心放大出现 */
+        .video-section {
+            opacity: 0;
+            transform: scale(0.85);
+            animation: videoAppear 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation-delay: 0.2s;
+        }
+
+        @keyframes videoAppear {
+            from { opacity: 0; transform: scale(0.85); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         .video-wrapper {
@@ -66,7 +86,7 @@
             display: block;
             border-radius: 16px;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.4s ease;
         }
 
         video.loaded {
@@ -94,12 +114,14 @@
 
         .progress-area {
             margin-top: 16px;
-            position: relative;
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+            animation-delay: 0.6s;
         }
 
         .progress-bar {
             width: 100%;
-            height: 16px;
+            height: 24px;
             background: transparent;
             cursor: pointer;
             position: relative;
@@ -114,6 +136,7 @@
             border-radius: 2px;
             overflow: visible;
             position: relative;
+            transition: height 0.2s;
         }
 
         .progress-fill {
@@ -148,12 +171,63 @@
             height: 6px;
         }
 
+        /* 缩略图预览 */
+        .thumbnail-preview {
+            position: absolute;
+            bottom: 28px;
+            transform: translateX(-50%);
+            width: 160px;
+            height: 90px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .thumbnail-preview.active {
+            opacity: 1;
+        }
+
+        .thumbnail-preview canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .thumbnail-time {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        /* 信息区 */
         .info {
             margin-top: 32px;
             text-align: center;
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+            animation-delay: 0.8s;
         }
 
-        .info h1 {
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 逐字淡入 */
+        .info-title {
             font-size: 28px;
             font-weight: 700;
             margin-bottom: 12px;
@@ -163,7 +237,19 @@
             background-clip: text;
         }
 
-        .info p {
+        .char {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: charFadeIn 0.5s ease forwards;
+        }
+
+        @keyframes charFadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 逐行淡入 */
+        .info-desc {
             color: #666;
             font-size: 15px;
             line-height: 1.7;
@@ -171,6 +257,18 @@
             margin: 0 auto;
         }
 
+        .info-desc .line {
+            display: block;
+            opacity: 0;
+            transform: translateY(15px);
+            animation: lineFadeIn 0.5s ease forwards;
+        }
+
+        @keyframes lineFadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 邮箱悬停放大 */
         .footer {
             position: fixed;
             bottom: 0;
@@ -183,16 +281,26 @@
             background: #0a0a0f;
             border-top: 1px solid rgba(255,255,255,0.08);
             z-index: 10;
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+            animation-delay: 1s;
         }
 
         .footer a {
             color: #667eea;
             text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+
+        .footer a:hover {
+            transform: scale(1.15);
+            color: #8b9ef0;
         }
 
         @media (max-width: 600px) {
-            .info h1 { font-size: 22px; }
-            .info p { font-size: 14px; }
+            .info-title { font-size: 22px; }
+            .info-desc { font-size: 14px; }
         }
     </style>
 <base target="_blank">
@@ -203,29 +311,35 @@
     <div class="container">
         <div class="logo">Portfolio</div>
 
-        <div class="video-wrapper">
-            <div class="buffering" id="buffering"></div>
-            <video controls id="mainVideo" playsinline></video>
-        </div>
+        <div class="video-section">
+            <div class="video-wrapper">
+                <div class="buffering" id="buffering"></div>
+                <video id="mainVideo" playsinline controls></video>
+            </div>
 
-        <div class="progress-area">
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-track">
-                    <div class="progress-fill" id="progressFill">
-                        <div class="progress-thumb"></div>
+            <div class="progress-area">
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill">
+                            <div class="progress-thumb"></div>
+                        </div>
+                    </div>
+                    <div class="thumbnail-preview" id="thumbnailPreview">
+                        <canvas id="thumbCanvas" width="160" height="90"></canvas>
+                        <div class="thumbnail-time" id="thumbTime">00:00</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="info">
-            <h1>作品集 SHOWREEL</h1>
-            <p>我是一名专注于视觉表达与内容创作的创作者，目前的创作方向涵盖视频制作、创意策划与影像叙事。我希望通过画面、节奏与故事，将创意转化为具有传播力与感染力的作品。无论是短片、广告还是新媒体内容，我都期待在表达与体验之间找到平衡，并持续探索内容创作的更多可能。</p>
+            <h1 class="info-title" id="infoTitle">作品标题</h1>
+            <p class="info-desc" id="infoDesc">在这里写下你的作品描述，介绍创作背景、使用的工具、你在项目中承担的角色等信息。</p>
         </div>
     </div>
 
     <div class="footer">
-        <a href="mailto:qynw@qq.com">your-email@example.com</a>
+        <a href="mailto:your-email@example.com">your-email@example.com</a>
     </div>
 
     <script>
@@ -240,11 +354,103 @@
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
         const buffering = document.getElementById('buffering');
+        const thumbnailPreview = document.getElementById('thumbnailPreview');
+        const thumbCanvas = document.getElementById('thumbCanvas');
+        const thumbCtx = thumbCanvas.getContext('2d');
+        const thumbTime = document.getElementById('thumbTime');
         let currentSegment = 0;
         let preloaded = {};
         let isDragging = false;
         let wasPlaying = false;
+        let thumbVideo = null;
 
+        // ========== 文字动效初始化 ==========
+        function initTextAnimations() {
+            // 逐字淡入标题
+            const title = document.getElementById('infoTitle');
+            const text = title.textContent;
+            title.innerHTML = '';
+            text.split('').forEach((char, i) => {
+                const span = document.createElement('span');
+                span.className = 'char';
+                span.textContent = char === ' ' ? ' ' : char;
+                span.style.animationDelay = `${0.8 + i * 0.06}s`;
+                title.appendChild(span);
+            });
+
+            // 逐行淡入描述
+            const desc = document.getElementById('infoDesc');
+            const lines = desc.textContent.split('\n').filter(l => l.trim());
+            if (lines.length <= 1) {
+                // 如果没有换行，按句子拆分
+                const sentences = desc.textContent.split(/(?<=[。！？.!?])/).filter(s => s.trim());
+                desc.innerHTML = '';
+                sentences.forEach((line, i) => {
+                    const span = document.createElement('span');
+                    span.className = 'line';
+                    span.textContent = line.trim();
+                    span.style.animationDelay = `${1.0 + i * 0.1}s`;
+                    desc.appendChild(span);
+                    desc.appendChild(document.createElement('br'));
+                });
+            } else {
+                desc.innerHTML = '';
+                lines.forEach((line, i) => {
+                    const span = document.createElement('span');
+                    span.className = 'line';
+                    span.textContent = line.trim();
+                    span.style.animationDelay = `${1.0 + i * 0.1}s`;
+                    desc.appendChild(span);
+                    if (i < lines.length - 1) desc.appendChild(document.createElement('br'));
+                });
+            }
+        }
+
+        // ========== 缩略图 ==========
+        function initThumbnail() {
+            thumbVideo = document.createElement('video');
+            thumbVideo.muted = true;
+            thumbVideo.preload = 'metadata';
+        }
+
+        function updateThumbnail(ratio) {
+            const targetSegment = Math.floor(ratio * videoSegments.length);
+            const segProgress = (ratio * videoSegments.length) - targetSegment;
+
+            if (thumbVideo.src !== videoSegments[targetSegment]) {
+                thumbVideo.src = videoSegments[targetSegment];
+            }
+
+            thumbVideo.currentTime = segProgress * (thumbVideo.duration || 1);
+
+            requestAnimationFrame(() => {
+                try {
+                    thumbCtx.drawImage(thumbVideo, 0, 0, 160, 90);
+                } catch(e) {}
+            });
+
+            // 计算总时间显示
+            const totalSeconds = ratio * videoSegments.length * 30; // 假设每段30秒
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = Math.floor(totalSeconds % 60);
+            thumbTime.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        }
+
+        function showThumbnail(x) {
+            const rect = progressBar.getBoundingClientRect();
+            const ratio = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
+
+            thumbnailPreview.style.left = `${ratio * 100}%`;
+            thumbnailPreview.classList.add('active');
+
+            updateThumbnail(ratio);
+        }
+
+        function hideThumbnail() {
+            thumbnailPreview.classList.remove('active');
+        }
+
+        // ========== 预加载 ==========
         function preload(index) {
             if (index < 0 || index >= videoSegments.length || preloaded[index]) return;
             const v = document.createElement('video');
@@ -266,8 +472,40 @@
         }
 
         function updateProgress() {
-            const pct = getTotalProgress() * 100;
-            progressFill.style.width = pct + '%';
+            if (!isDragging) {
+                const pct = getTotalProgress() * 100;
+                progressFill.style.width = pct + '%';
+            }
+        }
+
+        // ========== 平滑切换视频 ==========
+        function smoothSwitchTo(index, segProgress, shouldPlay) {
+            if (index < 0 || index >= videoSegments.length) return;
+
+            // 先淡出当前视频
+            video.style.opacity = '0';
+
+            setTimeout(() => {
+                currentSegment = index;
+                video.src = videoSegments[index];
+
+                preloadRange(index + 1, 2);
+                preloadRange(index - 1, 1);
+
+                video.onloadeddata = () => {
+                    video.currentTime = segProgress * video.duration;
+                    // 淡入新视频
+                    video.style.opacity = '1';
+                    if (shouldPlay) {
+                        video.play().catch(() => {});
+                    }
+                    updateProgress();
+                };
+
+                video.onerror = () => {
+                    video.style.opacity = '1';
+                };
+            }, 300);
         }
 
         function seekToProgress(ratio) {
@@ -275,20 +513,11 @@
             const segProgress = (ratio * videoSegments.length) - targetSegment;
 
             if (targetSegment !== currentSegment) {
-                currentSegment = targetSegment;
-                video.src = videoSegments[targetSegment];
-
-                preloadRange(targetSegment + 1, 2);
-                preloadRange(targetSegment - 1, 1);
-
-                video.onloadeddata = () => {
-                    video.currentTime = segProgress * video.duration;
-                    if (wasPlaying) video.play().catch(() => {});
-                    updateProgress();
-                };
+                smoothSwitchTo(targetSegment, segProgress, wasPlaying);
             } else {
                 video.currentTime = segProgress * video.duration;
                 updateProgress();
+                if (wasPlaying) video.play().catch(() => {});
             }
         }
 
@@ -314,6 +543,7 @@
             });
         }
 
+        // ========== 拖动事件 ==========
         function handleStart(e) {
             isDragging = true;
             progressBar.classList.add('dragging');
@@ -323,16 +553,27 @@
         }
 
         function handleMove(e) {
-            if (!isDragging) return;
+            if (!isDragging) {
+                // hover 时显示缩略图
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                showThumbnail(clientX);
+                return;
+            }
+
             const rect = progressBar.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let ratio = (clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
             progressFill.style.width = (ratio * 100) + '%';
+
+            showThumbnail(clientX);
         }
 
         function handleEnd(e) {
-            if (!isDragging) return;
+            if (!isDragging) {
+                hideThumbnail();
+                return;
+            }
             isDragging = false;
             progressBar.classList.remove('dragging');
 
@@ -342,6 +583,7 @@
             ratio = Math.max(0, Math.min(1, ratio));
 
             seekToProgress(ratio);
+            hideThumbnail();
         }
 
         progressBar.addEventListener('mousedown', handleStart);
@@ -352,14 +594,82 @@
         document.addEventListener('touchmove', handleMove, { passive: false });
         document.addEventListener('touchend', handleEnd);
 
+        progressBar.addEventListener('mouseenter', (e) => {
+            if (!isDragging) showThumbnail(e.clientX);
+        });
+        progressBar.addEventListener('mouseleave', () => {
+            if (!isDragging) hideThumbnail();
+        });
+
         progressBar.addEventListener('click', (e) => {
             if (isDragging) return;
             const rect = progressBar.getBoundingClientRect();
             let ratio = (e.clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
+            wasPlaying = !video.paused;
             seekToProgress(ratio);
         });
 
+        // ========== 键盘快捷键 ==========
+        document.addEventListener('keydown', (e) => {
+            // 如果正在输入框中，不处理
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    video.currentTime = Math.max(0, video.currentTime - 5);
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    video.currentTime = Math.min(video.duration, video.currentTime + 5);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    video.volume = Math.min(1, video.volume + 0.1);
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    video.volume = Math.max(0, video.volume - 0.1);
+                    break;
+                case ' ':
+                case 'k':
+                case 'K':
+                    e.preventDefault();
+                    if (video.paused) {
+                        video.play().catch(() => {});
+                    } else {
+                        video.pause();
+                    }
+                    break;
+                case 'j':
+                case 'J':
+                    e.preventDefault();
+                    video.currentTime = Math.max(0, video.currentTime - 10);
+                    break;
+                case 'l':
+                case 'L':
+                    e.preventDefault();
+                    video.currentTime = Math.min(video.duration, video.currentTime + 10);
+                    break;
+                case 'm':
+                case 'M':
+                    e.preventDefault();
+                    video.muted = !video.muted;
+                    break;
+                case 'f':
+                case 'F':
+                    e.preventDefault();
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        video.requestFullscreen();
+                    }
+                    break;
+            }
+        });
+
+        // ========== 播放事件 ==========
         video.addEventListener('ended', () => {
             loadSegment(currentSegment + 1);
         });
@@ -368,19 +678,63 @@
             if (!isDragging) updateProgress();
         });
 
-        document.addEventListener('keydown', (e) => {
-            switch(e.key) {
-                case 'ArrowLeft': loadSegment(currentSegment - 1); break;
-                case 'ArrowRight': loadSegment(currentSegment + 1); break;
-                case ' ': e.preventDefault(); video.paused ? video.play() : video.pause(); break;
+        // ========== 音量记忆 ==========
+        const savedVolume = localStorage.getItem('portfolio_volume');
+        if (savedVolume !== null) {
+            video.volume = parseFloat(savedVolume);
+        }
+
+        video.addEventListener('volumechange', () => {
+            localStorage.setItem('portfolio_volume', video.volume);
+        });
+
+        // ========== 播放进度记忆 ==========
+        function saveProgress() {
+            const progress = {
+                segment: currentSegment,
+                time: video.currentTime,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('portfolio_progress', JSON.stringify(progress));
+        }
+
+        video.addEventListener('timeupdate', saveProgress);
+        video.addEventListener('pause', saveProgress);
+
+        function restoreProgress() {
+            const saved = localStorage.getItem('portfolio_progress');
+            if (!saved) return;
+
+            try {
+                const progress = JSON.parse(saved);
+                // 只恢复24小时内的进度
+                if (Date.now() - progress.timestamp < 24 * 60 * 60 * 1000) {
+                    if (progress.segment > 0 && progress.segment < videoSegments.length) {
+                        currentSegment = progress.segment;
+                        video.src = videoSegments[progress.segment];
+                        video.onloadeddata = () => {
+                            video.currentTime = progress.time;
+                            video.classList.add('loaded');
+                            buffering.classList.remove('active');
+                            updateProgress();
+                        };
+                        return true;
+                    }
+                }
+            } catch(e) {}
+            return false;
+        }
+
+        // ========== 初始化 ==========
+        window.addEventListener('DOMContentLoaded', () => {
+            initTextAnimations();
+            initThumbnail();
+            preloadRange(0, 3);
+
+            if (!restoreProgress()) {
+                loadSegment(0);
             }
         });
-
-        window.addEventListener('DOMContentLoaded', () => {
-            preloadRange(0, 3);
-        });
-
-        loadSegment(0);
     </script>
 </body>
 </html>
