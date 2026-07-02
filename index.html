@@ -85,7 +85,7 @@
             display: block;
             border-radius: 16px;
             opacity: 0;
-            transition: opacity 0.4s ease;
+            transition: opacity 0.3s ease;
         }
 
         video.loaded {
@@ -170,46 +170,6 @@
             height: 6px;
         }
 
-        .thumbnail-preview {
-            position: absolute;
-            bottom: 28px;
-            transform: translateX(-50%);
-            width: 160px;
-            height: 90px;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            z-index: 100;
-        }
-
-        .thumbnail-preview.active {
-            opacity: 1;
-        }
-
-        .thumbnail-preview canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .thumbnail-time {
-            position: absolute;
-            bottom: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
-            color: #fff;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            white-space: nowrap;
-        }
-
         .info {
             margin-top: 32px;
             text-align: center;
@@ -291,7 +251,7 @@
         <div class="video-section">
             <div class="video-wrapper">
                 <div class="buffering" id="buffering"></div>
-                <video id="mainVideo" playsinline controls></video>
+                <video id="mainVideo" playsinline controls preload="auto"></video>
             </div>
 
             <div class="progress-area">
@@ -301,16 +261,12 @@
                             <div class="progress-thumb"></div>
                         </div>
                     </div>
-                    <div class="thumbnail-preview" id="thumbnailPreview">
-                        <canvas id="thumbCanvas" width="160" height="90"></canvas>
-                        <div class="thumbnail-time" id="thumbTime">00:00</div>
-                    </div>
                 </div>
             </div>
         </div>
 
         <div class="info">
-            <h1 class="info-title" id="infoTitle">作品集</h1>
+            <h1 class="info-title" id="infoTitle">作品集 SHOWREEL</h1>
             <p class="info-desc" id="infoDesc">我是一名专注于视觉表达与内容创作的创作者，目前的创作方向涵盖视频制作、创意策划与影像叙事。我希望通过画面、节奏与故事，将创意转化为具有传播力与感染力的作品。无论是短片、广告还是新媒体内容，我都期待在表达与体验之间找到平衡，并持续探索内容创作的更多可能。</p>
         </div>
     </div>
@@ -331,65 +287,21 @@
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
         const buffering = document.getElementById('buffering');
-        const thumbnailPreview = document.getElementById('thumbnailPreview');
-        const thumbCanvas = document.getElementById('thumbCanvas');
-        const thumbCtx = thumbCanvas.getContext('2d');
-        const thumbTime = document.getElementById('thumbTime');
         let currentSegment = 0;
         let preloaded = {};
         let isDragging = false;
         let wasPlaying = false;
-        let thumbVideo = null;
 
-        function initThumbnail() {
-            thumbVideo = document.createElement('video');
-            thumbVideo.muted = true;
-            thumbVideo.preload = 'auto';
-        }
-
-        function updateThumbnail(ratio) {
-            const targetSegment = Math.floor(ratio * videoSegments.length);
-            const segProgress = (ratio * videoSegments.length) - targetSegment;
-
-            if (thumbVideo.src !== videoSegments[targetSegment]) {
-                thumbVideo.src = videoSegments[targetSegment];
-            }
-
-            thumbVideo.currentTime = segProgress * (thumbVideo.duration || 1);
-
-            requestAnimationFrame(() => {
-                try {
-                    thumbCtx.drawImage(thumbVideo, 0, 0, 160, 90);
-                } catch(e) {}
-            });
-
-            const totalSeconds = ratio * videoSegments.length * 30;
-            const mins = Math.floor(totalSeconds / 60);
-            const secs = Math.floor(totalSeconds % 60);
-            thumbTime.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-        }
-
-        function showThumbnail(x) {
-            const rect = progressBar.getBoundingClientRect();
-            const ratio = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
-
-            thumbnailPreview.style.left = `${ratio * 100}%`;
-            thumbnailPreview.classList.add('active');
-
-            updateThumbnail(ratio);
-        }
-
-        function hideThumbnail() {
-            thumbnailPreview.classList.remove('active');
-        }
-
+        // 预加载：使用 fetch 预取视频数据，比创建 video 元素更高效
         function preload(index) {
             if (index < 0 || index >= videoSegments.length || preloaded[index]) return;
-            const v = document.createElement('video');
-            v.src = videoSegments[index];
-            v.preload = 'auto';
-            v.muted = true;
-            preloaded[index] = v;
+            preloaded[index] = true;
+            const link = document.createElement('link');
+            link.rel = 'preload';
+            link.href = videoSegments[index];
+            link.as = 'video';
+            link.type = 'video/mp4';
+            document.head.appendChild(link);
         }
 
         function preloadRange(start, count) {
@@ -405,36 +317,8 @@
 
         function updateProgress() {
             if (!isDragging) {
-                const pct = getTotalProgress() * 100;
-                progressFill.style.width = pct + '%';
+                progressFill.style.width = (getTotalProgress() * 100) + '%';
             }
-        }
-
-        function smoothSwitchTo(index, segProgress, shouldPlay) {
-            if (index < 0 || index >= videoSegments.length) return;
-
-            video.style.opacity = '0';
-
-            setTimeout(() => {
-                currentSegment = index;
-                video.src = videoSegments[index];
-
-                preloadRange(index + 1, 2);
-                preloadRange(index - 1, 1);
-
-                video.onloadeddata = () => {
-                    video.currentTime = segProgress * video.duration;
-                    video.style.opacity = '1';
-                    if (shouldPlay) {
-                        video.play().catch(() => {});
-                    }
-                    updateProgress();
-                };
-
-                video.onerror = () => {
-                    video.style.opacity = '1';
-                };
-            }, 300);
         }
 
         function seekToProgress(ratio) {
@@ -442,7 +326,15 @@
             const segProgress = (ratio * videoSegments.length) - targetSegment;
 
             if (targetSegment !== currentSegment) {
-                smoothSwitchTo(targetSegment, segProgress, wasPlaying);
+                currentSegment = targetSegment;
+                video.src = videoSegments[targetSegment];
+                preloadRange(targetSegment + 1, 2);
+                preloadRange(targetSegment - 1, 1);
+                video.onloadeddata = () => {
+                    video.currentTime = segProgress * video.duration;
+                    if (wasPlaying) video.play().catch(() => {});
+                    updateProgress();
+                };
             } else {
                 video.currentTime = segProgress * video.duration;
                 updateProgress();
@@ -452,26 +344,16 @@
 
         function loadSegment(index) {
             if (index < 0 || index >= videoSegments.length) return;
-
-            buffering.classList.add('active');
-            video.classList.remove('loaded');
-
-            requestAnimationFrame(() => {
-                currentSegment = index;
-                video.src = videoSegments[index];
-
-                preloadRange(index + 1, 2);
-                preloadRange(index - 1, 1);
-
-                video.onloadeddata = () => {
-                    video.classList.add('loaded');
-                    buffering.classList.remove('active');
-                    video.play().catch(() => {});
-                    updateProgress();
-                };
-            });
+            currentSegment = index;
+            video.src = videoSegments[index];
+            preloadRange(index + 1, 2);
+            preloadRange(index - 1, 1);
+            video.classList.add('loaded');
+            video.play().catch(() => {});
+            updateProgress();
         }
 
+        // 拖动事件
         function handleStart(e) {
             isDragging = true;
             progressBar.classList.add('dragging');
@@ -481,26 +363,16 @@
         }
 
         function handleMove(e) {
-            if (!isDragging) {
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                showThumbnail(clientX);
-                return;
-            }
-
+            if (!isDragging) return;
             const rect = progressBar.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let ratio = (clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
             progressFill.style.width = (ratio * 100) + '%';
-
-            showThumbnail(clientX);
         }
 
         function handleEnd(e) {
-            if (!isDragging) {
-                hideThumbnail();
-                return;
-            }
+            if (!isDragging) return;
             isDragging = false;
             progressBar.classList.remove('dragging');
 
@@ -510,7 +382,6 @@
             ratio = Math.max(0, Math.min(1, ratio));
 
             seekToProgress(ratio);
-            hideThumbnail();
         }
 
         progressBar.addEventListener('mousedown', handleStart);
@@ -521,13 +392,6 @@
         document.addEventListener('touchmove', handleMove, { passive: false });
         document.addEventListener('touchend', handleEnd);
 
-        progressBar.addEventListener('mouseenter', (e) => {
-            if (!isDragging) showThumbnail(e.clientX);
-        });
-        progressBar.addEventListener('mouseleave', () => {
-            if (!isDragging) hideThumbnail();
-        });
-
         progressBar.addEventListener('click', (e) => {
             if (isDragging) return;
             const rect = progressBar.getBoundingClientRect();
@@ -537,6 +401,7 @@
             seekToProgress(ratio);
         });
 
+        // 键盘快捷键
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -561,11 +426,7 @@
                 case 'k':
                 case 'K':
                     e.preventDefault();
-                    if (video.paused) {
-                        video.play().catch(() => {});
-                    } else {
-                        video.pause();
-                    }
+                    video.paused ? video.play().catch(() => {}) : video.pause();
                     break;
                 case 'j':
                 case 'J':
@@ -585,75 +446,56 @@
                 case 'f':
                 case 'F':
                     e.preventDefault();
-                    if (document.fullscreenElement) {
-                        document.exitFullscreen();
-                    } else {
-                        video.requestFullscreen();
-                    }
+                    document.fullscreenElement ? document.exitFullscreen() : video.requestFullscreen();
                     break;
             }
         });
 
-        video.addEventListener('ended', () => {
-            loadSegment(currentSegment + 1);
-        });
+        video.addEventListener('ended', () => loadSegment(currentSegment + 1));
+        video.addEventListener('timeupdate', () => { if (!isDragging) updateProgress(); });
+        video.addEventListener('waiting', () => buffering.classList.add('active'));
+        video.addEventListener('playing', () => buffering.classList.remove('active'));
+        video.addEventListener('canplay', () => buffering.classList.remove('active'));
 
-        video.addEventListener('timeupdate', () => {
-            if (!isDragging) updateProgress();
-        });
-
+        // 音量记忆
         const savedVolume = localStorage.getItem('portfolio_volume');
-        if (savedVolume !== null) {
-            video.volume = parseFloat(savedVolume);
-        }
+        if (savedVolume !== null) video.volume = parseFloat(savedVolume);
+        video.addEventListener('volumechange', () => localStorage.setItem('portfolio_volume', video.volume));
 
-        video.addEventListener('volumechange', () => {
-            localStorage.setItem('portfolio_volume', video.volume);
-        });
-
+        // 播放进度记忆
         function saveProgress() {
-            const progress = {
+            localStorage.setItem('portfolio_progress', JSON.stringify({
                 segment: currentSegment,
                 time: video.currentTime,
                 timestamp: Date.now()
-            };
-            localStorage.setItem('portfolio_progress', JSON.stringify(progress));
+            }));
         }
-
         video.addEventListener('timeupdate', saveProgress);
         video.addEventListener('pause', saveProgress);
 
         function restoreProgress() {
             const saved = localStorage.getItem('portfolio_progress');
-            if (!saved) return;
-
+            if (!saved) return false;
             try {
-                const progress = JSON.parse(saved);
-                if (Date.now() - progress.timestamp < 24 * 60 * 60 * 1000) {
-                    if (progress.segment > 0 && progress.segment < videoSegments.length) {
-                        currentSegment = progress.segment;
-                        video.src = videoSegments[progress.segment];
-                        video.onloadeddata = () => {
-                            video.currentTime = progress.time;
-                            video.classList.add('loaded');
-                            buffering.classList.remove('active');
-                            updateProgress();
-                        };
-                        return true;
-                    }
+                const p = JSON.parse(saved);
+                if (Date.now() - p.timestamp < 86400000 && p.segment >= 0 && p.segment < videoSegments.length) {
+                    currentSegment = p.segment;
+                    video.src = videoSegments[p.segment];
+                    video.onloadeddata = () => {
+                        video.currentTime = p.time;
+                        video.classList.add('loaded');
+                        buffering.classList.remove('active');
+                        updateProgress();
+                    };
+                    return true;
                 }
             } catch(e) {}
             return false;
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            initThumbnail();
-            preloadRange(0, 3);
-
-            if (!restoreProgress()) {
-                loadSegment(0);
-            }
-        });
+        // 初始化
+        preloadRange(0, 3);
+        if (!restoreProgress()) loadSegment(0);
     </script>
 </body>
 </html>
