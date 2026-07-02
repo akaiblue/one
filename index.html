@@ -85,7 +85,7 @@
             display: block;
             border-radius: 16px;
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.4s ease;
         }
 
         video.loaded {
@@ -170,19 +170,18 @@
             height: 6px;
         }
 
-        /* 缩略图预览 */
         .thumbnail-preview {
             position: absolute;
             bottom: 28px;
             transform: translateX(-50%);
             width: 160px;
             height: 90px;
-            background: #111;
+            background: #000;
             border-radius: 8px;
             overflow: hidden;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.15s;
+            transition: opacity 0.2s;
             border: 1px solid rgba(255,255,255,0.1);
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
             z-index: 100;
@@ -192,10 +191,9 @@
             opacity: 1;
         }
 
-        .thumbnail-preview img {
+        .thumbnail-preview canvas {
             width: 100%;
             height: 100%;
-            object-fit: cover;
             display: block;
         }
 
@@ -204,26 +202,17 @@
             bottom: 4px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
+            background: rgba(0,0,0,0.8);
             color: #fff;
             font-size: 11px;
             padding: 2px 8px;
             border-radius: 4px;
             white-space: nowrap;
-            font-family: monospace;
         }
 
         .info {
             margin-top: 32px;
             text-align: center;
-            opacity: 0;
-            animation: fadeInUp 0.6s ease forwards;
-            animation-delay: 0.8s;
-        }
-
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .info-title {
@@ -234,18 +223,10 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            min-height: 1.2em;
-        }
-
-        .char {
-            display: inline-block;
             opacity: 0;
             transform: translateY(20px);
-            animation: charFadeIn 0.5s ease forwards;
-        }
-
-        @keyframes charFadeIn {
-            to { opacity: 1; transform: translateY(0); }
+            animation: fadeInUp 0.6s ease forwards;
+            animation-delay: 0.8s;
         }
 
         .info-desc {
@@ -254,16 +235,14 @@
             line-height: 1.7;
             max-width: 600px;
             margin: 0 auto;
-        }
-
-        .info-desc .line {
-            display: block;
             opacity: 0;
             transform: translateY(15px);
-            animation: lineFadeIn 0.5s ease forwards;
+            animation: fadeInUp 0.6s ease forwards;
+            animation-delay: 1.0s;
         }
 
-        @keyframes lineFadeIn {
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
@@ -281,7 +260,7 @@
             z-index: 10;
             opacity: 0;
             animation: fadeInUp 0.6s ease forwards;
-            animation-delay: 1s;
+            animation-delay: 1.2s;
         }
 
         .footer a {
@@ -323,7 +302,7 @@
                         </div>
                     </div>
                     <div class="thumbnail-preview" id="thumbnailPreview">
-                        <img id="thumbImg" src="" alt="">
+                        <canvas id="thumbCanvas" width="160" height="90"></canvas>
                         <div class="thumbnail-time" id="thumbTime">00:00</div>
                     </div>
                 </div>
@@ -331,13 +310,13 @@
         </div>
 
         <div class="info">
-            <h1 class="info-title" id="infoTitle">作品标题</h1>
-            <p class="info-desc" id="infoDesc">在这里写下你的作品描述，介绍创作背景、使用的工具、你在项目中承担的角色等信息。</p>
+            <h1 class="info-title" id="infoTitle">作品集</h1>
+            <p class="info-desc" id="infoDesc">我是一名专注于视觉表达与内容创作的创作者，目前的创作方向涵盖视频制作、创意策划与影像叙事。我希望通过画面、节奏与故事，将创意转化为具有传播力与感染力的作品。无论是短片、广告还是新媒体内容，我都期待在表达与体验之间找到平衡，并持续探索内容创作的更多可能。</p>
         </div>
     </div>
 
     <div class="footer">
-        <a href="mailto:your-email@example.com">your-email@example.com</a>
+        <a href="mailto:qynw@qq.com">your-email@example.com</a>
     </div>
 
     <script>
@@ -353,93 +332,48 @@
         const progressFill = document.getElementById('progressFill');
         const buffering = document.getElementById('buffering');
         const thumbnailPreview = document.getElementById('thumbnailPreview');
-        const thumbImg = document.getElementById('thumbImg');
+        const thumbCanvas = document.getElementById('thumbCanvas');
+        const thumbCtx = thumbCanvas.getContext('2d');
         const thumbTime = document.getElementById('thumbTime');
         let currentSegment = 0;
         let preloaded = {};
         let isDragging = false;
         let wasPlaying = false;
         let thumbVideo = null;
-        let thumbCanvas = null;
-        let thumbCtx = null;
 
-        // ========== 文字动效初始化 ==========
-        function initTextAnimations() {
-            // 逐字淡入标题
-            const title = document.getElementById('infoTitle');
-            const text = title.textContent.trim() || '作品标题';
-            title.innerHTML = '';
-            text.split('').forEach((char, i) => {
-                const span = document.createElement('span');
-                span.className = 'char';
-                span.textContent = char === ' ' ? ' ' : char;
-                span.style.animationDelay = `${0.8 + i * 0.06}s`;
-                title.appendChild(span);
-            });
-
-            // 逐行淡入描述
-            const desc = document.getElementById('infoDesc');
-            const rawText = desc.textContent.trim() || '在这里写下你的作品描述';
-            const sentences = rawText.split(/(?<=[。！？.!?])/).filter(s => s.trim());
-            desc.innerHTML = '';
-            sentences.forEach((line, i) => {
-                const span = document.createElement('span');
-                span.className = 'line';
-                span.textContent = line.trim();
-                span.style.animationDelay = `${1.5 + i * 0.15}s`;
-                desc.appendChild(span);
-                if (i < sentences.length - 1) desc.appendChild(document.createElement('br'));
-            });
-        }
-
-        // ========== 缩略图 ==========
         function initThumbnail() {
             thumbVideo = document.createElement('video');
             thumbVideo.muted = true;
             thumbVideo.preload = 'auto';
-            thumbVideo.crossOrigin = 'anonymous';
-
-            thumbCanvas = document.createElement('canvas');
-            thumbCanvas.width = 160;
-            thumbCanvas.height = 90;
-            thumbCtx = thumbCanvas.getContext('2d');
-
-            thumbVideo.addEventListener('loadeddata', () => {
-                try {
-                    thumbCtx.drawImage(thumbVideo, 0, 0, 160, 90);
-                    thumbImg.src = thumbCanvas.toDataURL('image/jpeg', 0.7);
-                } catch(e) {}
-            });
         }
 
         function updateThumbnail(ratio) {
-            const targetSegment = Math.min(
-                Math.floor(ratio * videoSegments.length),
-                videoSegments.length - 1
-            );
+            const targetSegment = Math.floor(ratio * videoSegments.length);
             const segProgress = (ratio * videoSegments.length) - targetSegment;
 
-            if (thumbVideo.src !== location.href.replace(/[^/]*$/, '') + videoSegments[targetSegment]) {
+            if (thumbVideo.src !== videoSegments[targetSegment]) {
                 thumbVideo.src = videoSegments[targetSegment];
             }
 
-            if (thumbVideo.duration) {
-                thumbVideo.currentTime = Math.min(segProgress * thumbVideo.duration, thumbVideo.duration - 0.1);
-            }
+            thumbVideo.currentTime = segProgress * (thumbVideo.duration || 1);
 
-            // 时间显示
+            requestAnimationFrame(() => {
+                try {
+                    thumbCtx.drawImage(thumbVideo, 0, 0, 160, 90);
+                } catch(e) {}
+            });
+
             const totalSeconds = ratio * videoSegments.length * 30;
             const mins = Math.floor(totalSeconds / 60);
             const secs = Math.floor(totalSeconds % 60);
             thumbTime.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
         }
 
-        function showThumbnail(clientX) {
+        function showThumbnail(x) {
             const rect = progressBar.getBoundingClientRect();
-            let ratio = (clientX - rect.left) / rect.width;
-            ratio = Math.max(0, Math.min(1, ratio));
+            const ratio = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
 
-            thumbnailPreview.style.left = `${ratio * rect.width}px`;
+            thumbnailPreview.style.left = `${ratio * 100}%`;
             thumbnailPreview.classList.add('active');
 
             updateThumbnail(ratio);
@@ -449,7 +383,6 @@
             thumbnailPreview.classList.remove('active');
         }
 
-        // ========== 预加载 ==========
         function preload(index) {
             if (index < 0 || index >= videoSegments.length || preloaded[index]) return;
             const v = document.createElement('video');
@@ -477,12 +410,9 @@
             }
         }
 
-        // ========== 平滑切换视频（不闪） ==========
         function smoothSwitchTo(index, segProgress, shouldPlay) {
             if (index < 0 || index >= videoSegments.length) return;
 
-            // 先淡出
-            video.style.transition = 'opacity 0.4s ease';
             video.style.opacity = '0';
 
             setTimeout(() => {
@@ -492,29 +422,23 @@
                 preloadRange(index + 1, 2);
                 preloadRange(index - 1, 1);
 
-                const onLoaded = () => {
+                video.onloadeddata = () => {
                     video.currentTime = segProgress * video.duration;
                     video.style.opacity = '1';
                     if (shouldPlay) {
                         video.play().catch(() => {});
                     }
                     updateProgress();
-                    video.removeEventListener('loadeddata', onLoaded);
                 };
-
-                video.addEventListener('loadeddata', onLoaded);
 
                 video.onerror = () => {
                     video.style.opacity = '1';
                 };
-            }, 400);
+            }, 300);
         }
 
         function seekToProgress(ratio) {
-            const targetSegment = Math.min(
-                Math.floor(ratio * videoSegments.length),
-                videoSegments.length - 1
-            );
+            const targetSegment = Math.floor(ratio * videoSegments.length);
             const segProgress = (ratio * videoSegments.length) - targetSegment;
 
             if (targetSegment !== currentSegment) {
@@ -548,33 +472,23 @@
             });
         }
 
-        // ========== 拖动事件 ==========
         function handleStart(e) {
             isDragging = true;
             progressBar.classList.add('dragging');
             wasPlaying = !video.paused;
             if (wasPlaying) video.pause();
-
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            showThumbnail(clientX);
             handleMove(e);
         }
 
         function handleMove(e) {
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-
             if (!isDragging) {
-                // hover 时显示缩略图
-                const rect = progressBar.getBoundingClientRect();
-                if (clientX >= rect.left && clientX <= rect.right) {
-                    showThumbnail(clientX);
-                } else {
-                    hideThumbnail();
-                }
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                showThumbnail(clientX);
                 return;
             }
 
             const rect = progressBar.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let ratio = (clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
             progressFill.style.width = (ratio * 100) + '%';
@@ -583,17 +497,15 @@
         }
 
         function handleEnd(e) {
-            const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-
             if (!isDragging) {
                 hideThumbnail();
                 return;
             }
-
             isDragging = false;
             progressBar.classList.remove('dragging');
 
             const rect = progressBar.getBoundingClientRect();
+            const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
             let ratio = (clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
 
@@ -612,7 +524,6 @@
         progressBar.addEventListener('mouseenter', (e) => {
             if (!isDragging) showThumbnail(e.clientX);
         });
-
         progressBar.addEventListener('mouseleave', () => {
             if (!isDragging) hideThumbnail();
         });
@@ -626,7 +537,6 @@
             seekToProgress(ratio);
         });
 
-        // ========== 键盘快捷键 ==========
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -637,7 +547,7 @@
                     break;
                 case 'ArrowRight':
                     e.preventDefault();
-                    video.currentTime = Math.min(video.duration || 0, video.currentTime + 5);
+                    video.currentTime = Math.min(video.duration, video.currentTime + 5);
                     break;
                 case 'ArrowUp':
                     e.preventDefault();
@@ -651,8 +561,11 @@
                 case 'k':
                 case 'K':
                     e.preventDefault();
-                    if (video.paused) video.play().catch(() => {});
-                    else video.pause();
+                    if (video.paused) {
+                        video.play().catch(() => {});
+                    } else {
+                        video.pause();
+                    }
                     break;
                 case 'j':
                 case 'J':
@@ -662,7 +575,7 @@
                 case 'l':
                 case 'L':
                     e.preventDefault();
-                    video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+                    video.currentTime = Math.min(video.duration, video.currentTime + 10);
                     break;
                 case 'm':
                 case 'M':
@@ -672,13 +585,15 @@
                 case 'f':
                 case 'F':
                     e.preventDefault();
-                    if (document.fullscreenElement) document.exitFullscreen();
-                    else video.requestFullscreen();
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        video.requestFullscreen();
+                    }
                     break;
             }
         });
 
-        // ========== 播放事件 ==========
         video.addEventListener('ended', () => {
             loadSegment(currentSegment + 1);
         });
@@ -687,15 +602,15 @@
             if (!isDragging) updateProgress();
         });
 
-        // ========== 音量记忆 ==========
         const savedVolume = localStorage.getItem('portfolio_volume');
-        if (savedVolume !== null) video.volume = parseFloat(savedVolume);
+        if (savedVolume !== null) {
+            video.volume = parseFloat(savedVolume);
+        }
 
         video.addEventListener('volumechange', () => {
             localStorage.setItem('portfolio_volume', video.volume);
         });
 
-        // ========== 播放进度记忆 ==========
         function saveProgress() {
             const progress = {
                 segment: currentSegment,
@@ -710,30 +625,28 @@
 
         function restoreProgress() {
             const saved = localStorage.getItem('portfolio_progress');
-            if (!saved) return false;
+            if (!saved) return;
 
             try {
                 const progress = JSON.parse(saved);
-                if (Date.now() - progress.timestamp > 24 * 60 * 60 * 1000) return false;
-
-                if (progress.segment >= 0 && progress.segment < videoSegments.length) {
-                    currentSegment = progress.segment;
-                    video.src = videoSegments[progress.segment];
-                    video.onloadeddata = () => {
-                        video.currentTime = progress.time;
-                        video.classList.add('loaded');
-                        buffering.classList.remove('active');
-                        updateProgress();
-                    };
-                    return true;
+                if (Date.now() - progress.timestamp < 24 * 60 * 60 * 1000) {
+                    if (progress.segment > 0 && progress.segment < videoSegments.length) {
+                        currentSegment = progress.segment;
+                        video.src = videoSegments[progress.segment];
+                        video.onloadeddata = () => {
+                            video.currentTime = progress.time;
+                            video.classList.add('loaded');
+                            buffering.classList.remove('active');
+                            updateProgress();
+                        };
+                        return true;
+                    }
                 }
             } catch(e) {}
             return false;
         }
 
-        // ========== 初始化 ==========
         window.addEventListener('DOMContentLoaded', () => {
-            initTextAnimations();
             initThumbnail();
             preloadRange(0, 3);
 
