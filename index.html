@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>作品集 - 视频展示</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
             background: #0a0a0f;
             color: #e0e0e0;
             min-height: 100vh;
@@ -16,10 +17,25 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px 20px;
+            padding: 40px 20px 80px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .grid-bg {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                linear-gradient(rgba(102, 126, 234, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(102, 126, 234, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
+            position: relative;
+            z-index: 1;
             width: 100%;
             max-width: 960px;
         }
@@ -42,35 +58,94 @@
             overflow: hidden;
             box-shadow: 0 30px 60px rgba(0,0,0,0.5);
             border: 1px solid rgba(255,255,255,0.05);
+            background: #000;
         }
 
         video {
             width: 100%;
             display: block;
             border-radius: 16px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        video.loaded {
+            opacity: 1;
+        }
+
+        .buffering {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px; height: 32px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+            z-index: 3;
+        }
+
+        .buffering.active { display: block; }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .progress-area {
+            margin-top: 16px;
+            position: relative;
         }
 
         .progress-bar {
             width: 100%;
+            height: 16px;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .progress-track {
+            width: 100%;
             height: 4px;
             background: rgba(255,255,255,0.1);
-            margin-top: 16px;
             border-radius: 2px;
-            overflow: hidden;
+            overflow: visible;
+            position: relative;
         }
 
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #667eea, #764ba2);
             width: 0%;
-            transition: width 0.3s;
+            border-radius: 2px;
+            position: relative;
+            pointer-events: none;
         }
 
-        .segment-info {
-            text-align: center;
-            margin-top: 12px;
-            color: #666;
-            font-size: 14px;
+        .progress-thumb {
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%) scale(0);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #667eea;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.5);
+            transition: transform 0.15s;
+        }
+
+        .progress-bar:hover .progress-thumb,
+        .progress-bar.dragging .progress-thumb {
+            transform: translateY(-50%) scale(1);
+        }
+
+        .progress-bar:hover .progress-track,
+        .progress-bar.dragging .progress-track {
+            height: 6px;
         }
 
         .info {
@@ -93,29 +168,26 @@
             font-size: 15px;
             line-height: 1.7;
             max-width: 600px;
-            margin: 0 auto 20px;
-        }
-
-        .tags {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .tag {
-            padding: 6px 14px;
-            background: rgba(102, 126, 234, 0.1);
-            color: #667eea;
-            border-radius: 20px;
-            font-size: 13px;
+            margin: 0 auto;
         }
 
         .footer {
-            margin-top: 60px;
-            color: #444;
-            font-size: 13px;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 16px;
             text-align: center;
+            font-size: 13px;
+            color: #666;
+            background: #0a0a0f;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            z-index: 10;
+        }
+
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
         }
 
         @media (max-width: 600px) {
@@ -123,85 +195,191 @@
             .info p { font-size: 14px; }
         }
     </style>
+<base target="_blank">
 </head>
 <body>
+    <div class="grid-bg"></div>
+
     <div class="container">
         <div class="logo">Portfolio</div>
 
         <div class="video-wrapper">
-            <video controls id="mainVideo">
-                <source src="video001.mp4" type="video/mp4">
-                您的浏览器不支持视频播放，请使用 Chrome、Safari 或 Edge 浏览器。
-            </video>
+            <div class="buffering" id="buffering"></div>
+            <video controls id="mainVideo" playsinline></video>
         </div>
 
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
+        <div class="progress-area">
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill">
+                        <div class="progress-thumb"></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="segment-info" id="segmentInfo">第 1 / 3 段</div>
 
         <div class="info">
             <h1>作品集 SHOWREEL</h1>
             <p>我是一名专注于视觉表达与内容创作的创作者，目前的创作方向涵盖视频制作、创意策划与影像叙事。我希望通过画面、节奏与故事，将创意转化为具有传播力与感染力的作品。无论是短片、广告还是新媒体内容，我都期待在表达与体验之间找到平衡，并持续探索内容创作的更多可能。</p>
-            <div class="tags">
-                <span class="tag">剧情短片</span>
-                <span class="tag">创意广告</span>
-                <span class="tag">内容创作</span>
-            </div>
-        </div>
-
-        <div class="footer">
-            联系方式: qynw@qq.com
         </div>
     </div>
 
+    <div class="footer">
+        <a href="mailto:qynw@qq.com">your-email@example.com</a>
+    </div>
+
     <script>
-        // 视频片段列表 - 根据实际片段数量修改
         const videoSegments = [
-            'video000.mp4',
-            'video001.mp4',
-            'video002.mp4',
-            'video003.mp4',
-            'video004.mp4',
-            'video005.mp4',
-            'video006.mp4',
-            'video007.mp4',
-            'video008.mp4',
-            'video009.mp4',
-            'video010.mp4',
-            'video011.mp4',
-            'video012.mp4',  
-        ]; 
+            'video000.mp4', 'video001.mp4', 'video002.mp4', 'video003.mp4',
+            'video004.mp4', 'video005.mp4', 'video006.mp4', 'video007.mp4',
+            'video008.mp4', 'video009.mp4', 'video010.mp4', 'video011.mp4',
+            'video012.mp4'
+        ];
 
         const video = document.getElementById('mainVideo');
+        const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
-        const segmentInfo = document.getElementById('segmentInfo');
+        const buffering = document.getElementById('buffering');
         let currentSegment = 0;
+        let preloaded = {};
+        let isDragging = false;
+        let wasPlaying = false;
+
+        function preload(index) {
+            if (index < 0 || index >= videoSegments.length || preloaded[index]) return;
+            const v = document.createElement('video');
+            v.src = videoSegments[index];
+            v.preload = 'auto';
+            v.muted = true;
+            preloaded[index] = v;
+        }
+
+        function preloadRange(start, count) {
+            for (let i = start; i < start + count && i < videoSegments.length; i++) {
+                preload(i);
+            }
+        }
+
+        function getTotalProgress() {
+            if (!video.duration) return 0;
+            return (currentSegment + video.currentTime / video.duration) / videoSegments.length;
+        }
 
         function updateProgress() {
-            const totalProgress = (currentSegment + video.currentTime / video.duration) / videoSegments.length * 100;
-            progressFill.style.width = totalProgress + '%';
+            const pct = getTotalProgress() * 100;
+            progressFill.style.width = pct + '%';
+        }
+
+        function seekToProgress(ratio) {
+            const targetSegment = Math.floor(ratio * videoSegments.length);
+            const segProgress = (ratio * videoSegments.length) - targetSegment;
+
+            if (targetSegment !== currentSegment) {
+                currentSegment = targetSegment;
+                video.src = videoSegments[targetSegment];
+
+                preloadRange(targetSegment + 1, 2);
+                preloadRange(targetSegment - 1, 1);
+
+                video.onloadeddata = () => {
+                    video.currentTime = segProgress * video.duration;
+                    if (wasPlaying) video.play().catch(() => {});
+                    updateProgress();
+                };
+            } else {
+                video.currentTime = segProgress * video.duration;
+                updateProgress();
+            }
         }
 
         function loadSegment(index) {
-            if (index >= videoSegments.length) {
-                // 播放完毕
-                segmentInfo.textContent = '播放完毕';
-                return;
-            }
-            currentSegment = index;
-            video.src = videoSegments[index];
-            segmentInfo.textContent = `第 ${index + 1} / ${videoSegments.length} 段`;
-            video.play();
+            if (index < 0 || index >= videoSegments.length) return;
+
+            buffering.classList.add('active');
+            video.classList.remove('loaded');
+
+            requestAnimationFrame(() => {
+                currentSegment = index;
+                video.src = videoSegments[index];
+
+                preloadRange(index + 1, 2);
+                preloadRange(index - 1, 1);
+
+                video.onloadeddata = () => {
+                    video.classList.add('loaded');
+                    buffering.classList.remove('active');
+                    video.play().catch(() => {});
+                    updateProgress();
+                };
+            });
         }
+
+        function handleStart(e) {
+            isDragging = true;
+            progressBar.classList.add('dragging');
+            wasPlaying = !video.paused;
+            if (wasPlaying) video.pause();
+            handleMove(e);
+        }
+
+        function handleMove(e) {
+            if (!isDragging) return;
+            const rect = progressBar.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let ratio = (clientX - rect.left) / rect.width;
+            ratio = Math.max(0, Math.min(1, ratio));
+            progressFill.style.width = (ratio * 100) + '%';
+        }
+
+        function handleEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            progressBar.classList.remove('dragging');
+
+            const rect = progressBar.getBoundingClientRect();
+            const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+            let ratio = (clientX - rect.left) / rect.width;
+            ratio = Math.max(0, Math.min(1, ratio));
+
+            seekToProgress(ratio);
+        }
+
+        progressBar.addEventListener('mousedown', handleStart);
+        document.addEventListener('mousemove', handleMove);
+        document.addEventListener('mouseup', handleEnd);
+
+        progressBar.addEventListener('touchstart', handleStart, { passive: false });
+        document.addEventListener('touchmove', handleMove, { passive: false });
+        document.addEventListener('touchend', handleEnd);
+
+        progressBar.addEventListener('click', (e) => {
+            if (isDragging) return;
+            const rect = progressBar.getBoundingClientRect();
+            let ratio = (e.clientX - rect.left) / rect.width;
+            ratio = Math.max(0, Math.min(1, ratio));
+            seekToProgress(ratio);
+        });
 
         video.addEventListener('ended', () => {
             loadSegment(currentSegment + 1);
         });
 
-        video.addEventListener('timeupdate', updateProgress);
+        video.addEventListener('timeupdate', () => {
+            if (!isDragging) updateProgress();
+        });
 
-        // 初始化
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft': loadSegment(currentSegment - 1); break;
+                case 'ArrowRight': loadSegment(currentSegment + 1); break;
+                case ' ': e.preventDefault(); video.paused ? video.play() : video.pause(); break;
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            preloadRange(0, 3);
+        });
+
         loadSegment(0);
     </script>
 </body>
